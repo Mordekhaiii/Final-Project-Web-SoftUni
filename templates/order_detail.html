@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Detail</title>
+</head>
+<body>
+    <h1>Order Detail</h1>
+
+    <div>
+        <h3>Order ID: {{ order.id }}</h3>
+        <p>Created at: {{ order.created_at }}</p>
+        <p>Status: {{ order.status }}</p>
+        <p>Total Price: {{ order.total_price }}</p>
+    </div>
+
+    <h2>Cart Items</h2>
+    <ul>
+        {% for item in order.cart.items.all %}
+            <li>
+                {{ item.product.name }} - {{ item.quantity }} x {{ item.product.price }} = {{ item.quantity|multiply:item.product.price }}
+            </li>
+        {% empty %}
+            <li>No items in this order.</li>
+        {% endfor %}
+    </ul>
+
+    <a href="{% url 'order_list' %}">Back to Orders</a>
+</body>
+</html>
