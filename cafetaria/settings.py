@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'halaman',
+    'orders',
+
 ]
 
 MIDDLEWARE = [
@@ -125,6 +127,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+import os
+
 STATIC_URL = 'static/'
 
 STATICFILES_DIRS = [
@@ -132,6 +136,9 @@ STATICFILES_DIRS = [
 ]
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+
 
 
 # Default primary key field type

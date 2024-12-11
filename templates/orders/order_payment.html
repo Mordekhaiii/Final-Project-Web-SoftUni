@@ -1,0 +1,36 @@
+{% load static custom_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Processing</title>
+    <link rel="stylesheet" href="{% static 'css/orders.css' %}?v={{ timestamp }}">
+</head>
+<body>
+    <header>
+        <h1>Payment Processing</h1>
+    </header>
+
+    <main>
+        <section>
+            <h2>Order Details</h2>
+            <p><strong>Order ID:</strong> {{ order.id }}</p>
+            <p><strong>Status:</strong> {{ order.status }}</p>
+            <p><strong>Total Price:</strong> {{ order.total_price|currency }}</p>
+            <p><strong>Created At:</strong> {{ order.created_at|date:"M d, Y H:i" }}</p>
+        </section>
+
+        <section>
+            <h2>Payment Options</h2>
+            <p>Please select your preferred payment method below:</p>
+            <form method="POST" action="{% url 'process_payment' order.id %}">
+                {% csrf_token %}
+                <button type="submit" name="payment_method" value="credit_card">Pay with Credit Card</button>
+                <button type="submit" name="payment_method" value="bank_transfer">Pay with Bank Transfer</button>
+                <button type="submit" name="payment_method" value="cash">Pay with Cash</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

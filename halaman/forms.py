@@ -3,13 +3,8 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django import forms
 from .models import UserProfile
-from .models import Order
 
 
-class OrderForm(ModelForm):
-    class Meta:
-        model = Order
-        fields = '__all__'
 
 class CreateUserForm(UserCreationForm):
     class Meta:
@@ -40,3 +35,4 @@ class CustomPasswordChangeForm(PasswordChangeForm):
         self.fields['old_password'].widget.attrs.update({'class': 'form-control'})
         self.fields['new_password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['new_password2'].widget.attrs.update({'class': 'form-control'})
+

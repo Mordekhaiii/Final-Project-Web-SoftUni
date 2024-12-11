@@ -12,13 +12,6 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib import messages
 from django.contrib.auth.models import User
 
-# Checkout Start
-import json
-from django.http import JsonResponse
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-# Checkout End
-
 
 @login_required
 def home(request):
@@ -194,59 +187,5 @@ def contact(request):
     return render(request, 'contact.html')
 
 
-# Views Cekout
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from .models import Product, Cart, CartItem, Order
-
-
-@login_required
-def view_cart(request):
-    cart, created = Cart.objects.get_or_create(user=request.user)
-    total_price = sum(item.total_price for item in cart.items.all())
-    return render(request, 'home.html', {'cart': cart, 'total_price': total_price})
-
-
-@login_required
-def add_to_cart(request, product_id):
-    cart, created = Cart.objects.get_or_create(user=request.user)
-    product = Product.objects.get(id=product_id)
-
-    # Check if the product is already in the cart
-    cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
-
-    if not created:  # If the item already exists in the cart, update the quantity
-        cart_item.quantity += 1
-    cart_item.save()
-
-    return JsonResponse({'status': 'success', 'message': 'Item added to cart'})
-
-
-@login_required
-def remove_from_cart(request, product_id):
-    cart = Cart.objects.get(user=request.user)
-    cart_item = CartItem.objects.get(cart=cart, product__id=product_id)
-    cart_item.delete()
-
-    return JsonResponse({'status': 'success', 'message': 'Item removed from cart'})
-
-
-@login_required
-def checkout(request):
-    cart = Cart.objects.get(user=request.user)
-    total_price = sum(item.total_price for item in cart.items.all())
-
-    # Create an order from the cart
-    order = Order.objects.create(cart=cart, user=request.user, total_price=total_price)
-
-    # Optionally clear the cart after checkout
-    cart.items.all().delete()
-
-    return redirect('order_detail', order_id=order.id)
-
-
-def order_detail(request, order_id):
-    order = Order.objects.get(id=order_id)
-    return render(request, 'order_detail.html', {'order': order})
+# Cekout
 
