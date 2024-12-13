@@ -1,6 +1,7 @@
 from unicodedata import name
 from django.urls import path
 from . import views
+
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
@@ -13,5 +14,6 @@ urlpatterns = [
     path('profile/edit/', views.edit_user_profile, name='edit_profile'),
     path('contact/', views.contact, name='contact'),
     path('profile/update_profile', views.update_user_profile, name='update_profile'),
+
 
 ]

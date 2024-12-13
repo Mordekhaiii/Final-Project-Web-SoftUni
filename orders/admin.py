@@ -10,7 +10,8 @@ from .models import Product, Order, OrderItem
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'price', 'img')
+    list_display = ('name', 'price', 'img')
+    search_fields = ('name',)
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
