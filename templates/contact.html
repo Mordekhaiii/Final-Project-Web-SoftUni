@@ -58,8 +58,8 @@
         <a href="{% url "home" %}">Home</a>
         <a href="#about">Tentang Kami</a>
         <a href="#menu">Menu</a>
-        <a href="#products">Produk</a>
-        <a href="#contact">Kontak</a>
+        <a href="{% url 'product_list' %}">Produk</a>
+        <a href="{% url 'contact' %}">Kontak</a>
         {% csrf_token %}
 
         <!-- Tombol Kartu Member (Muncul saat belum login) -->

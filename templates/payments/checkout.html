@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkout</title>
+</head>
+<body>
+    <h1>Checkout</h1>
+
+    <p>Produk: {{ product.name }}</p>
+    <p>Harga: {{ product.price }}</p>
+
+    <h2>Pilih Metode Pembayaran</h2>
+
+    <form action="{% url 'process_payment' product.id %}" method="post">
+    {% csrf_token %}
+    <select name="payment_method">
+        {% for payment_method in payment_methods %}
+            <option value="{{ payment_method.code }}">{{ payment_method.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Bayar</button>
+</form>
+</body>
+</html>

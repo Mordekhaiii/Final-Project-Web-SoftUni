@@ -17,6 +17,94 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
 
+
+
+#Admin Only Product
+from django.contrib.auth.decorators import user_passes_test
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import user_passes_test
+from .models import Product
+from .forms import ProductForm
+
+def is_admin(user):
+    return user.is_staff
+
+from django.contrib.auth.decorators import login_required, user_passes_test
+
+import logging
+logger = logging.getLogger(__name__)
+@login_required
+
+
+def product_list(request):
+    products = Product.objects.all()
+    for product in products:
+        logger.debug(f"Product Image: {product.img.url}")
+    return render(request, 'orders/product_list_crud.html', {'products': products})
+
+
+
+@user_passes_test(is_admin)
+def product_create(request):
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Produk berhasil ditambahkan!")
+            return redirect('product_list')
+        else:
+            messages.error(request, "Gagal menambahkan produk. Periksa form.")
+    else:
+        form = ProductForm()
+    return render(request, 'orders/product_form.html', {'form': form})
+
+def product_add(request):
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect('product_list')  # Redirect ke daftar produk setelah berhasil menambah
+    else:
+        form = ProductForm()
+    return render(request, 'orders/product_add.html', {'form': form})
+
+def product_edit(request, id):
+    product = get_object_or_404(Product, id=id)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            return redirect('product_list')  # Redirect ke daftar produk setelah berhasil mengedit
+    else:
+        form = ProductForm(instance=product)
+    return render(request, 'orders/product_edit.html', {'form': form, 'product': product})
+
+@user_passes_test(is_admin)
+def product_update(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Produk berhasil diperbarui!")
+            return redirect('product_list')
+        else:
+            messages.error(request, "Gagal memperbarui produk.")
+    else:
+        form = ProductForm(instance=product)
+    return render(request, 'orders/product_form.html', {'form': form})
+
+@user_passes_test(is_admin)
+def product_delete(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        product.delete()
+        messages.success(request, "Produk berhasil dihapus.")
+        return redirect('product_list')
+    return render(request, 'orders/product_confirm_delete.html', {'product': product})
+
+
 @login_required
 def checkout_view(request):
     if request.method == 'POST':
@@ -114,6 +202,7 @@ def user_orders_view(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')  # Fetch orders for the logged-in user
     return render(request, 'orders/orders.html', {'orders': orders})
 
+
 def product_list_view(request):
     products = Product.objects.all()
     return render(request, 'orders/product_list.html', {'products': products})
@@ -155,6 +244,8 @@ def home(request):
         print(f"Error: {e}")  # Print any errors
         order = None  # Set order to None if there's an error
     return render(request, 'home.html', {'order': order})
+
+
 # Home End
 
 # Payment
@@ -209,3 +300,5 @@ def confirm_payment(request):
 #         except Exception as e:
 #             return JsonResponse({'status': 'error', 'message': str(e)})
 #     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+#
+#
