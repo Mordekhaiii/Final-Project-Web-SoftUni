@@ -9,7 +9,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('home.html',views.home,name='home'),
     path('', views.user_orders_view, name='user_orders'),
-    path('products/', views.product_list, name='product_list'),  # Display the products
+    path('products/', views.product_list, name='product_list'),
+    path('product/', views.product_list_view, name='product_list'),
+    # Display the products
     # Admin
     path('products/create/', views.product_create, name='product_create'),
     path('products/<int:pk>/delete/', views.product_delete, name='product_delete'),
@@ -20,5 +22,9 @@ urlpatterns = [
     path('orders/product_summary/<int:pk>/', views.product_summary, name='product_summary'),
     # End
     path('orders/details/<int:order_id>/', views.order_detail, name='order_detail'),
+    path('orders/<int:order_id>/', views.order_detail_view, name='order_detail'),
+    path('orders/', views.order_list_view, name='order_list'),
+    path('checkout/<int:pk>/', views.product_checkout, name='product_checkout'),
+
 
 ]

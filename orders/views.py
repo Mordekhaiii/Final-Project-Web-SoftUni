@@ -20,15 +20,48 @@ def is_admin(user):
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 
-import logging
-logger = logging.getLogger(__name__)
+
+# Untuk Liat Views Product List Ketika Login
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Product, Order, OrderItem
+
 @login_required
 def product_list(request):
-    products = Product.objects.all()
-    for product in products:
-        logger.debug(f"Product Image: {product.img.url}")
-    return render(request, 'orders/product_list_crud.html', {'products': products})
+    # Get or create the order for the logged-in user (only unpaid orders)
+    order, created = Order.objects.get_or_create(user=request.user, paid_amount__isnull=True)
 
+    if request.method == 'POST':
+        product_id = request.POST.get('product_id')
+        product = Product.objects.get(id=product_id)
+
+        # Add product to the user's order
+        order_item, created = OrderItem.objects.get_or_create(order=order, product=product)
+
+        # Update product stock
+        if product.stock > 0:
+            product.stock -= 1
+            product.save()
+        else:
+            # If out of stock, show message (optional)
+            return redirect('product_list')  # Redirect back if out of stock
+
+        # Redirect to payment page
+        return redirect('payment_order')
+
+    # Fetch all products
+    products = Product.objects.all()
+
+    context = {
+        'products': products,
+        'order': order,  # Send the order to the template
+    }
+    return render(request, 'orders/product_list_crud.html', context)
+
+# Ketika tidak Login
+def product_list_view(request):
+    products = Product.objects.all()
+    return render(request, 'orders/product_list_crud.html', {'products': products})
 
 def product_setting(request):
     # Handle form submission
@@ -53,8 +86,8 @@ def product_setting(request):
     # Pass both form and product information to the template
     return render(request, 'orders/product_setting.html', {'form': form, 'products_with_stock': products_with_stock})
 
-# Update Stock Product
 
+# Update Stock Product Admin
 @user_passes_test(is_admin)
 def product_create(request):
     if request.method == 'POST':
@@ -92,7 +125,7 @@ def product_edit(request, id):
 
 
 
-
+# Admin Update Stock
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect
 from .models import Product
@@ -116,12 +149,7 @@ def update_stock(request, pk):
 
     return render(request, 'orders/update_stock.html', {'product': product})
 # Stock
-from django.db.models import Q
-
-def product_summary(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    return render(request, 'orders/product_summary.html', {'product': product})
-
+# Admin Delete Product
 @user_passes_test(is_admin)
 def product_delete(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -172,7 +200,6 @@ def checkout(request):
     return render(request, 'orders/checkout.html')
 # Checkout
 
-# History
 
 
 
@@ -204,13 +231,34 @@ def order_detail_view(request, order_id):
 # Alur dari payment_order ke user_order_views
 @login_required
 def user_orders_view(request):
-    orders = Order.objects.filter(user=request.user).order_by('-created_at')  # Fetch orders for the logged-in user
-    return render(request, 'orders/orders.html', {'orders': orders})
+    # Ambil semua pesanan user yang sedang login, diurutkan dari yang terbaru
+    orders = Order.objects.filter(user=request.user, paid_amount__isnull=False).order_by('-created_at')
+
+    # Hitung total harga setiap pesanan jika perlu
+    for order in orders:
+        # Menggunakan related_name 'order_items'
+        total_price = sum(item.product.price * item.quantity for item in order.items.all())
+        order.total_price = total_price
+        order.save()
+
+    # data untuk template
+    context = {
+        'orders': orders
+    }
+    return render(request, 'orders/orders.html', context)
+
+
 # Alur End
 
-def product_list_view(request):
-    products = Product.objects.all()
-    return render(request, 'orders/product_list.html', {'products': products})
+
+def product_checkout(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == "POST":
+        quantity = int(request.POST.get("quantity", 1))
+        # Proses checkout atau logic lainnya
+        return render(request, "orders/checkout.html", {"product": product, "quantity": quantity})
+
+    return render(request, "orders/checkout.html", {"product": product})
 
 # Order List
 @login_required
@@ -231,3 +279,12 @@ def home(request):
 
 
 # Home End
+
+
+from django.db.models import Q
+
+def product_summary(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    return render(request, 'orders/product_summary.html', {'product': product})
+
+
