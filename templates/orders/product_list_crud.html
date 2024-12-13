@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="icon" href="{% static 'images/resto_icon.png' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,300;0,400;0,700;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,300;0,400;0,700&display=swap" rel="stylesheet">
     <style>
         body.custom-body {
             background: url("{% static 'images/header-bg.jpeg' %}");
@@ -45,14 +45,14 @@
             color: #fda085;
         }
 
-        .button-container-right {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            z-index: 10;
+        .top-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
         }
 
-        .add-button, .custom-btn {
+        .add-button, .settings-button {
             background-color: #fda085;
             color: #fff;
             text-decoration: none;
@@ -66,7 +66,7 @@
             cursor: pointer;
         }
 
-        .add-button:hover, .custom-btn:hover {
+        .add-button:hover, .settings-button:hover {
             background-color: #f6a364;
             box-shadow: 0 6px 8px rgba(246, 163, 100, 0.3);
             transform: translateY(-2px);
@@ -107,14 +107,6 @@
             font-size: 1rem;
             color: #555;
         }
-
-        .custom-btn {
-            margin: 15px auto;
-            display: block;
-            text-align: center;
-            width: 120px;
-        }
-
     </style>
 </head>
 <body class="custom-body">
@@ -130,16 +122,16 @@
             <a href="#products">Produk</a>
             <a href="{% url 'contact' %}">Kontak</a>
         </div>
-
-        <div class="button-container-right">
-            {% if user.is_staff %}
-                <a href="{% url 'product_add' %}" class="add-button">Tambah Produk</a>
-            {% endif %}
-        </div>
     </nav>
     <!-- Navbar end -->
 
     <div class="container custom-container">
+        <div class="top-buttons">
+            {% if user.is_staff %}
+                <a href="{% url 'product_add' %}" class="add-button">Tambah Produk</a>
+                <a href="{% url 'product_setting' %}" class="settings-button">Setting Produk</a>
+            {% endif %}
+        </div>
         <h1 class="text-center">Daftar Produk</h1>
         <div class="row mt-4">
             {% if products %}
@@ -149,17 +141,12 @@
                             <img src="{{ product.img.url }}" alt="{{ product.name }}">
                             <div class="p-3">
                                 <h5>{{ product.name }}</h5>
+                                <p><strong>Deskripsi:</strong> {{ product.description }}</p>
                                 <p><strong>Harga:</strong> Rp {{ product.price }}</p>
                                 <p><strong>Stok:</strong> {{ product.stock }}</p>
+
                                 {% if user.is_authenticated %}
-                                    <a href="{% url 'payment' product.id %}" class="custom-btn">Pesan</a>
-                                {% endif %}
-                                {% if user.is_staff %}
-                                    <a href="{% url 'product_edit' product.id %}" class="custom-btn" style="background-color: #ffc107;">Edit</a>
-                                    <form action="{% url 'product_delete' product.id %}" method="post" style="display:inline;">
-                                        {% csrf_token %}
-                                        <button type="submit" class="custom-btn" style="background-color: #dc3545;" onclick="return confirm('Apakah Anda yakin ingin menghapus produk ini?');">Hapus</button>
-                                    </form>
+                                    <a href="{% url 'payment_order' product.id %}" class="btn btn-primary">Pesan</a>
                                 {% endif %}
                             </div>
                         </div>

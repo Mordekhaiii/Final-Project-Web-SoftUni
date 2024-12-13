@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'halaman',
     'orders',
-    'payments',
+    'Payment',
+    'Riwayat_transaksi',
 
 ]
 

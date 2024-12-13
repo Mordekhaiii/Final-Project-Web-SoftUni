@@ -1,30 +1,18 @@
-import profile
-
-from django.shortcuts import render,HttpResponse, redirect
-from django.contrib.auth.forms import UserCreationForm
-from halaman.forms import CreateUserForm
-import logging
-from django.contrib.auth.decorators import login_required
-
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
-from django.contrib.auth.models import User
-
+from django.shortcuts import render, redirect, get_object_or_404
+from Payment.models import Payment
+from django.contrib.auth.decorators import login_required
+from orders.models import Product
+from django.db import transaction
+from django.http import HttpResponseBadRequest
 
 from .models import Order, OrderItem, Product
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
 import json
 
-
+from django.urls import reverse
 
 #Admin Only Product
-from django.contrib.auth.decorators import user_passes_test
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import user_passes_test
-from .models import Product
 from .forms import ProductForm
 
 def is_admin(user):
@@ -35,8 +23,6 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 import logging
 logger = logging.getLogger(__name__)
 @login_required
-
-
 def product_list(request):
     products = Product.objects.all()
     for product in products:
@@ -44,6 +30,30 @@ def product_list(request):
     return render(request, 'orders/product_list_crud.html', {'products': products})
 
 
+def product_setting(request):
+    # Handle form submission
+    if request.method == "POST":
+        form = ProductForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            return redirect('product_setting')
+    else:
+        form = ProductForm()
+
+    # Get all products
+    products = Product.objects.all()
+
+    # Create a list of products with their stock values directly from the Product model
+    products_with_stock = []
+    for product in products:
+        # Get stock from the Product model
+        stock = product.stock  # Get the stock value from the model directly
+        products_with_stock.append({'product': product, 'stock': stock})
+
+    # Pass both form and product information to the template
+    return render(request, 'orders/product_setting.html', {'form': form, 'products_with_stock': products_with_stock})
+
+# Update Stock Product
 
 @user_passes_test(is_admin)
 def product_create(request):
@@ -80,20 +90,37 @@ def product_edit(request, id):
         form = ProductForm(instance=product)
     return render(request, 'orders/product_edit.html', {'form': form, 'product': product})
 
+
+
+
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponseRedirect
+from .models import Product
+
 @user_passes_test(is_admin)
-def product_update(request, pk):
+def update_stock(request, pk):
     product = get_object_or_404(Product, pk=pk)
+
     if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES, instance=product)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Produk berhasil diperbarui!")
-            return redirect('product_list')
-        else:
-            messages.error(request, "Gagal memperbarui produk.")
-    else:
-        form = ProductForm(instance=product)
-    return render(request, 'orders/product_form.html', {'form': form})
+        if 'increase' in request.POST:
+            product.stock += 1  # Increase stock by 1
+        elif 'decrease' in request.POST:
+            if product.stock > 0:
+                product.stock -= 1  # Decrease stock by 1 if stock is greater than 0
+            else:
+                error_message = "Stock cannot be negative."
+                return render(request, 'orders/update_stock.html', {'product': product, 'error_message': error_message})
+
+        product.save()
+        return HttpResponseRedirect(reverse('product_summary', args=[product.pk]))  # Redirect back to product summary page
+
+    return render(request, 'orders/update_stock.html', {'product': product})
+# Stock
+from django.db.models import Q
+
+def product_summary(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    return render(request, 'orders/product_summary.html', {'product': product})
 
 @user_passes_test(is_admin)
 def product_delete(request, pk):
@@ -105,71 +132,48 @@ def product_delete(request, pk):
     return render(request, 'orders/product_confirm_delete.html', {'product': product})
 
 
+# Checkout
 @login_required
-def checkout_view(request):
+def checkout(request):
     if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            total = data.get('total')
-            items = data.get('items')
+        # Simpan data pesanan
+        user = request.user
+        items = request.session.get('cart', {})  # Ambil data dari session (contoh keranjang belanja)
+        if not items:
+            messages.error(request, 'Your cart is empty.')
+            return redirect('cart')
 
-            if not items or total is None:
-                return JsonResponse({'status': 'error', 'message': 'Invalid cart data'}, status=400)
+        order = Order.objects.create(user=user, status='Pending')
+        total_price = 0
 
-            # Create the order
-            order = Order.objects.create(
-                user=request.user,
-                total_price=total,
-                status='Pending'
+        for product_id, quantity in items.items():
+            product = get_object_or_404(Product, id=product_id)
+            order_item = OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity=quantity,
+                price=product.price,
             )
+            total_price += product.price * quantity
 
-            for item in items:
-                product_id = item.get('id')
-                quantity = item.get('quantity')
+            # Update stok produk
+            product.stock -= quantity
+            product.save()
 
-                try:
-                    product = Product.objects.get(id=product_id)
-                except Product.DoesNotExist:
-                    return JsonResponse({'status': 'error', 'message': f'Product with id {product_id} does not exist'}, status=404)
+        order.total_price = total_price
+        order.save()
 
-                OrderItem.objects.create(
-                    order=order,
-                    product=product,
-                    quantity=quantity,
-                    price=product.price
-                )
+        # Hapus keranjang setelah checkout
+        del request.session['cart']
 
-            # Return URL for redirection
-            return JsonResponse({'status': 'success', 'redirect_url': f'/orders/payment/process/{order.id}/'})
+        messages.success(request, 'Your order has been placed successfully.')
+        return redirect('order_history')
 
-        except json.JSONDecodeError:
-            return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return render(request, 'orders/checkout.html')
+# Checkout
 
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+# History
 
-# Payment
-@login_required
-def payment_view(request, order_id):
-    try:
-        order = Order.objects.get(id=order_id, user=request.user)
-        return render(request, 'orders/order_payment.html', {'order': order})
-    except Order.DoesNotExist:
-        return redirect('order_list')  # Redirect to orders if the order is not found
-
-
-# Process Payment
-from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
-from .models import Order
-
-def process_payment(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
-    # Logika lainnya, misalnya memproses pembayaran
-    return render(request, 'orders/payment.html', {'order': order})
-# Payment End
-# Process Payment End
 
 
 # Order Detail
@@ -195,38 +199,18 @@ def order_detail(request, order_id):
 def order_detail_view(request, order_id):
     order = get_object_or_404(Order, id=order_id)
     return render(request, 'orders/order_detail.html', {'order': order})
-# Order Detail End
 
+
+# Alur dari payment_order ke user_order_views
 @login_required
 def user_orders_view(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')  # Fetch orders for the logged-in user
     return render(request, 'orders/orders.html', {'orders': orders})
-
+# Alur End
 
 def product_list_view(request):
     products = Product.objects.all()
     return render(request, 'orders/product_list.html', {'products': products})
-# Checkout End
-
-# Order
-from django.shortcuts import render, get_object_or_404
-from orders.models import Order
-
-
-@login_required
-def order_payment_view(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
-    if order.status == 'Paid':
-        return redirect('order_detail', order_id=order.id)
-
-    # Handle payment logic here, for example, integrating with a payment gateway
-    if request.method == 'POST':
-        # Simulating payment success
-        order.status = 'Paid'
-        order.save()
-        return redirect('order_detail', order_id=order.id)
-
-    return render(request, 'orders/order_payment.html', {'order': order})
 
 # Order List
 @login_required
@@ -247,58 +231,3 @@ def home(request):
 
 
 # Home End
-
-# Payment
-def payment(request):
-    # Fetch cart items and total from session or database
-    cart_items = request.session.get('cart_items', [])
-    cart_total = sum(item['total'] for item in cart_items)
-
-    context = {
-        'cart_items': cart_items,
-        'cart_total': cart_total,
-        'order_reference': 'REF123456',  # Example order reference
-    }
-    return render(request, 'orders/payment.html', context)
-
-def confirm_payment(request):
-    if request.method == 'POST':
-        payment_method = request.POST.get('payment_method')
-        # Process payment logic here
-        return redirect('order_history')
-
-
-
-# Cekout
-# from django.http import JsonResponse
-# from .models import Order
-#
-# def checkout(request):
-#     if request.method == 'POST':
-#         try:
-#             # Ambil data dari request
-#             data = json.loads(request.body)
-#             total = data.get('total')
-#             items = data.get('items')
-#
-#             # Buat pesanan (contoh sederhana)
-#             order = Order.objects.create(user=request.user, total=total)
-#
-#             # Simpan item pesanan jika diperlukan
-#             for item in items:
-#                 order.items.create(
-#                     product_id=item['id'],
-#                     quantity=item['quantity'],
-#                     price=item['price']
-#                 )
-#
-#             # Return respons JSON dengan order_id
-#             return JsonResponse({
-#                 'status': 'success',
-#                 'order_id': order.id
-#             })
-#         except Exception as e:
-#             return JsonResponse({'status': 'error', 'message': str(e)})
-#     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
-#
-#

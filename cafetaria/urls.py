@@ -23,7 +23,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include ('halaman.urls')),
     path('orders/', include ('orders.urls')),
-    path('payments/', include ('payments.urls')),
+    path('Payment/', include ('Payment.urls')),
+    path('Riwayat_transaksi/', include ('Riwayat_transaksi.urls')),
+
 
 ]
 from django.conf import settings

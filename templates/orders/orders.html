@@ -4,8 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Your Orders</title>
-    <link rel="stylesheet" href="{% static 'css/orders.css' %}?v={{ timestamp }}">  <!-- Adjust as per your CSS file -->
+    <link rel="stylesheet" href="{% static 'css/orders.css' %}?v={{ timestamp }}">
+    <!-- Link to CSS for the orders page -->
 </head>
 <body>
     <header>
@@ -32,8 +34,8 @@
                                 <td>{{ order.id }}</td>
                                 <td>{{ order.user.username }}</td>
                                 <td>{{ order.status }}</td>
-                                <td>{{ order.total_price }}</td>
-                                <td>{{ order.created_at|date:"M d, Y H:i" }}</td>
+                                <td>${{ order.total_price|floatformat:2 }}</td> <!-- Format price with two decimal places -->
+                                <td>{{ order.created_at|date:"M d, Y H:i" }}</td> <!-- Display formatted date -->
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -43,5 +45,9 @@
             {% endif %}
         </section>
     </main>
+
+    <footer>
+        <p>&copy; 2024 Your Company</p>
+    </footer>
 </body>
 </html>
