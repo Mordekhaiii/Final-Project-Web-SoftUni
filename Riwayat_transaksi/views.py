@@ -19,7 +19,7 @@ def complete_order(request):
                     TransactionHistory.objects.create(
                         date=payment.date,
                         user=payment.user,
-                        product=payment.product,
+                        perfume=payment.product,
                         quantity=payment.quantity,
                         total_price=payment.total_price,
                     )
@@ -27,7 +27,7 @@ def complete_order(request):
                     # Tambahkan logika untuk menghapus data di Payment
                     payment.delete()
         except Exception as e:
-            return redirect('payment_order')  # Jika terjadi kesalahan, kembali ke daftar pembayaran
+            return redirect('payment_list')  # Jika terjadi kesalahan, kembali ke daftar pembayaran
 
     return redirect('transaction_history')  # Alihkan ke halaman riwayat transaksi
 
@@ -35,4 +35,4 @@ def complete_order(request):
 @login_required
 def transaction_history(request):
     transactions = TransactionHistory.objects.filter(user=request.user).order_by('-id')
-    return render(request, 'riwayat_transaksi/transaction_history.html', {'transactions': transactions})
+    return render(request, 'orders/order_detail.html', {'transactions': transactions})

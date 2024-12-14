@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.db import transaction
 from .forms import PaymentForm  # Impor PaymentForm
 from .models import Product, Payment
-from orders.models import Order, OrderItem, Product
+from orders.models import Order
 
 
 @login_required
@@ -51,61 +51,27 @@ def decrease_quantity(request, payment_id):
     return redirect('payment_list')
 
 
-
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponseRedirect
-from orders.models import Product, Order, OrderItem
-from django.contrib.auth.decorators import login_required
-
 @login_required
-def payment_order(request, product_id):
-    try:
-        # Get the product from the database
-        product = get_object_or_404(Product, id=product_id)
 
-        # Ensure only one pending order exists for the user
-        orders = Order.objects.filter(user=request.user, status='pending')
-        if orders.exists():
-            order = orders.first()  # Get the first order if multiple exist
-            if orders.count() > 1:
-                # Remove duplicates and keep only one
-                orders.exclude(id=order.id).delete()
-        else:
-            # Create a new order if none exists
-            order = Order.objects.create(user=request.user, status='pending')
+def payment_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
 
-        # Get the quantity from the query parameters (default to 1)
-        quantity = int(request.GET.get('quantity', 1))
+    # Hitung total harga jika belum ada
+    if not order.total_price:
+        total_price = sum(item.price * item.quantity for item in order.items.all())
+        order.total_price = total_price
+        order.save()
 
-        # Check stock availability
-        if product.stock < quantity:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Not enough stock available'
-            }, status=400)
+    if request.method == 'POST':
+        payment_method = request.POST.get('payment_method')
 
-        # Check if the product is already in the order
-        order_item, created = OrderItem.objects.get_or_create(
-            order=order,
-            product=product,
-            defaults={'quantity': quantity, 'price': product.price}
-        )
-        if not created:
-            # If it already exists, update the quantity
-            order_item.quantity += quantity
-            order_item.save()
+        # Proses pembayaran
+        order.payment_method = payment_method
+        order.payment_status = 'Paid'
+        order.status = 'Completed'
+        order.save()
 
-        # Update the product stock
-        product.stock -= quantity
-        product.save()
+        messages.success(request, 'Your payment was successful!')
+        return redirect('user_orders')
 
-        # Redirect to the payment page
-        return redirect('payment_checkout', order_id=order.id)  # Ganti 'payment:checkout' dengan nama URL Anda
-
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Error adding product to order: {str(e)}'
-        }, status=500)
-
+    return render(request, 'payment/payment_order.html', {'order': order})
