@@ -3,6 +3,7 @@ from . import views
 from .views import decrease_quantity
 from django.contrib import admin
 from django.urls import path, include
+from orders.models import Order
 
 
 urlpatterns = [
@@ -10,5 +11,6 @@ urlpatterns = [
     path('delete_payment/<int:payment_id>/', views.delete_payment, name='delete_payment'),
     path('payment/<int:payment_id>/decrease/', decrease_quantity, name='decrease_quantity'),
     path('payment-order/<int:order_id>/', views.payment_order, name='payment_order'),
+
 
 ]

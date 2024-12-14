@@ -129,22 +129,22 @@
     </div>
   </div>
 </template>
-  <h4 x-show="!$store.cart.items.length" style="margin-top: 1rem">
-    Cart is Empty
-  </h4>
-  <h4 x-show="$store.cart.items.length">
-    Total: <span x-text="$store.cart.rupiah($store.cart.total)"></span>
-  </h4>
+<h4 x-show="!$store.cart.items.length" style="margin-top: 1rem">
+  Cart is Empty
+</h4>
+<h4 x-show="$store.cart.items.length">
+  Total: <span x-text="$store.cart.rupiah($store.cart.total)"></span>
+</h4>
 
-  <div class="form-container" x-show="$store.cart.items.length">
-    <form @submit.prevent="$store.cart.checkout()" id="checkoutForm">
-        {% csrf_token %}
-      <button class="checkout-button" type="submit" id="checkout-button">
-        Checkout
-      </button>
-    </form>
-  </div>
+<div class="form-container" x-show="$store.cart.items.length">
+  <form @submit.prevent="$store.cart.checkout()" id="checkoutForm">
+    {% csrf_token %}
+    <button class="checkout-button" type="submit" id="checkout-button">
+      Checkout
+    </button>
+  </form>
 </div>
+   </div>
       <!-- Shopping Cart end -->
     </nav>
 <!-- Products Section Start -->

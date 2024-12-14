@@ -28,35 +28,17 @@ from .models import Product, Order, OrderItem
 
 @login_required
 def product_list(request):
-    # Get or create the order for the logged-in user (only unpaid orders)
-    order, created = Order.objects.get_or_create(user=request.user, paid_amount__isnull=True)
+    try:
+        # Use filter to handle multiple orders
+        order = Order.objects.filter(user=request.user).first()  # or use .order_by('-created_at').first() for the most recent order
 
-    if request.method == 'POST':
-        product_id = request.POST.get('product_id')
-        product = Product.objects.get(id=product_id)
-
-        # Add product to the user's order
-        order_item, created = OrderItem.objects.get_or_create(order=order, product=product)
-
-        # Update product stock
-        if product.stock > 0:
-            product.stock -= 1
-            product.save()
+        if order:
+            return render(request, 'orders/product_list.html', {'order': order})
         else:
-            # If out of stock, show message (optional)
-            return redirect('product_list')  # Redirect back if out of stock
-
-        # Redirect to payment page
-        return redirect('payment_order')
-
-    # Fetch all products
-    products = Product.objects.all()
-
-    context = {
-        'products': products,
-        'order': order,  # Send the order to the template
-    }
-    return render(request, 'orders/product_list_crud.html', context)
+            # Handle case where no order is found
+            return render(request, 'orders/no_order.html')
+    except Exception as e:
+        return render(request, 'orders/error.html', {'error': str(e)})
 
 # Ketika tidak Login
 def product_list_view(request):
@@ -160,45 +142,127 @@ def product_delete(request, pk):
     return render(request, 'orders/product_confirm_delete.html', {'product': product})
 
 
-# Checkout
+
+# Cekout
+from .models import Order, OrderItem, Product
+from .forms import OrderForm, OrderItemForm
+import json
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+import json
+
+
 @login_required
+@require_http_methods(["POST"])
 def checkout(request):
-    if request.method == 'POST':
-        # Simpan data pesanan
-        user = request.user
-        items = request.session.get('cart', {})  # Ambil data dari session (contoh keranjang belanja)
-        if not items:
-            messages.error(request, 'Your cart is empty.')
-            return redirect('cart')
+    try:
+        # Parse the JSON data from the request body
+        data = json.loads(request.body)
 
-        order = Order.objects.create(user=user, status='Pending')
-        total_price = 0
+        # Extract checkout details
+        total = data.get('total')
+        items = data.get('items')
 
-        for product_id, quantity in items.items():
-            product = get_object_or_404(Product, id=product_id)
-            order_item = OrderItem.objects.create(
+        # Validate the data
+        if not total or not items:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid checkout data'
+            }, status=400)
+
+        # Create an order
+        order = Order.objects.create(
+            user=request.user,
+            total_price=total,
+            status='pending'
+        )
+
+        # Create order items
+        for item in items:
+            OrderItem.objects.create(
                 order=order,
-                product=product,
-                quantity=quantity,
-                price=product.price,
+                product_id=item['id'],
+                quantity=item['quantity'],
+                price=item['price']
             )
-            total_price += product.price * quantity
 
-            # Update stok produk
-            product.stock -= quantity
-            product.save()
+        # Return success response with order ID
+        return JsonResponse({
+            'status': 'success',
+            'order_id': order.id,
+            'message': 'Order placed successfully!'
+        })
 
-        order.total_price = total_price
-        order.save()
+    except Exception as e:
+        # Log the error
+        print(f"Checkout error: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'An unexpected error occurred'
+        }, status=500)
 
-        # Hapus keranjang setelah checkout
-        del request.session['cart']
 
-        messages.success(request, 'Your order has been placed successfully.')
-        return redirect('order_history')
+@login_required
+def payment_order(request, order_id):
+    # Retrieve the specific order
+    order = get_object_or_404(Order, id=order_id, user=request.user)
 
-    return render(request, 'orders/checkout.html')
-# Checkout
+    # Get order items
+    order_items = order.item_set.all()
+
+    return render(request, 'orders/payment.html', {
+        'order': order,
+        'order_items': order_items
+    })
+
+@login_required
+def create_order(request):
+    if request.method == 'POST':
+        try:
+            # Parse the cart data from the request
+            cart_data = json.loads(request.body)
+
+            # Create a new order
+            order = Order.objects.create(
+                user=request.user,
+                total_price=cart_data.get('total', 0),
+                status='pending'
+            )
+
+            # Create order items
+            for item in cart_data.get('items', []):
+                product = Product.objects.get(id=item['id'])
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=item['quantity'],
+                    price=item['price']
+                )
+
+            # Clear the cart or perform any additional processing
+            return JsonResponse({
+                'status': 'success',
+                'order_id': order.id,
+                'message': 'Order created successfully'
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=400)
+
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Invalid request method'
+    }, status=405)
+
 
 
 
@@ -250,15 +314,56 @@ def user_orders_view(request):
 
 # Alur End
 
+# Product Checkout
+from django.views.decorators.http import require_http_methods
+@login_required
+@require_http_methods(["POST"])
+def product_checkout(request):
+    try:
+        # Parse the JSON data from the request body
+        data = json.loads(request.body)
+        # Extract checkout details
+        total = data.get('total')
+        items = data.get('items')
 
-def product_checkout(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    if request.method == "POST":
-        quantity = int(request.POST.get("quantity", 1))
-        # Proses checkout atau logic lainnya
-        return render(request, "orders/checkout.html", {"product": product, "quantity": quantity})
+        # Validate the data
+        if not total or not items:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid checkout data'
+            }, status=400)
 
-    return render(request, "orders/checkout.html", {"product": product})
+        # Create an order
+        order = Order.objects.create(
+            user=request.user,
+            total_price=total,
+            status='pending'
+        )
+
+        # Create order items
+        for item in items:
+            OrderItem.objects.create(
+                order=order,
+                product_id=item['id'],
+                quantity=item['quantity'],
+                price=item['price']
+            )
+
+        # Return success response with order ID
+        return JsonResponse({
+            'status': 'success',
+            'order_id': order.id,
+            'redirect_url': f'/orders/checkout/{order.id}/'
+        })
+
+    except Exception as e:
+        # Log the error
+        print(f"Checkout error: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'An unexpected error occurred'
+        }, status=500)
+
 
 # Order List
 @login_required
@@ -287,4 +392,8 @@ def product_summary(request, pk):
     product = get_object_or_404(Product, pk=pk)
     return render(request, 'orders/product_summary.html', {'product': product})
 
+
+# def product_list(request):
+#     products = Product.objects.all()  # Fetch all products from the database
+#     return render(request, 'halaman/product_list.html', {'products': products})
 
